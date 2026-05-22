@@ -116,16 +116,10 @@ export function useWeddingPlanner() {
             ? "Add your Anthropic API key in Settings."
             : e.message || "Something went wrong. Please try again.";
         setError(message);
+        // Keep the user message; show errors in the banner only (no fake assistant reply).
         setConversations((prev) => ({
           ...prev,
-          [activeAgent]: [
-            ...updatedMsgs,
-            {
-              role: "assistant",
-              content: message,
-              icon: agent.icon,
-            },
-          ],
+          [activeAgent]: updatedMsgs,
         }));
       } finally {
         setLoading(false);
