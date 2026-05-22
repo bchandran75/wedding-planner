@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  handleAuthRedirect,
   isAuthConfigured,
   signInAsGuest,
   signInWithApple,
@@ -24,15 +25,21 @@ export function useAuth() {
   useEffect(() => {
     let unsub = () => {};
 
-    loadAuthState().then((state) => {
+    loadAuthState().then(async (state) => {
       setOnboardingComplete(state.onboardingComplete);
       if (state.localUser && !isAuthConfigured()) {
         setUser(state.localUser);
         setHydrated(true);
         return;
       }
-      if (state.localUser && state.localUser.isGuest) {
+      if (state.localUser?.isGuest) {
         setUser(state.localUser);
+      }
+
+      const redirectUser = await handleAuthRedirect();
+      if (redirectUser) {
+        setUser(redirectUser);
+        await saveAuthState({ localUser: redirectUser });
       }
 
       unsub = subscribeToAuth((firebaseUser) => {
@@ -61,8 +68,10 @@ export function useAuth() {
     setAuthLoading(true);
     try {
       const signedInUser = await fn();
-      setUser(signedInUser);
-      await saveAuthState({ localUser: signedInUser });
+      if (signedInUser) {
+        setUser(signedInUser);
+        await saveAuthState({ localUser: signedInUser });
+      }
       return signedInUser;
     } catch (e) {
       const msg = formatAuthError(e);

@@ -1,26 +1,22 @@
 import { Capacitor } from "@capacitor/core";
-import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
-import { initializeApp } from "firebase/app";
-import {
-  FacebookAuthProvider,
-  GoogleAuthProvider,
-  OAuthProvider,
-  getAuth,
-  onAuthStateChanged,
-  signInAnonymously,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-} from "firebase/auth";
 import { firebaseConfig, isFirebaseConfigured } from "../config/firebase.js";
 
 let firebaseApp;
 let firebaseAuth;
+let firebaseModules;
 
-function getWebAuth() {
+async function loadFirebase() {
   if (!isFirebaseConfigured()) return null;
+  if (!firebaseModules) {
+    const [appMod, authMod] = await Promise.all([
+      import("firebase/app"),
+      import("firebase/auth"),
+    ]);
+    firebaseModules = { ...appMod, ...authMod };
+  }
   if (!firebaseAuth) {
-    firebaseApp = initializeApp(firebaseConfig);
-    firebaseAuth = getAuth(firebaseApp);
+    firebaseApp = firebaseModules.initializeApp(firebaseConfig);
+    firebaseAuth = firebaseModules.getAuth(firebaseApp);
   }
   return firebaseAuth;
 }
@@ -37,109 +33,88 @@ export function mapFirebaseUser(user) {
   };
 }
 
-function mapNativeUser(user) {
-  if (!user) return null;
-  return {
-    uid: user.uid,
-    email: user.email || "",
-    displayName: user.displayName || "Wedding Planner",
-    photoURL: user.photoUrl || user.photoURL || "",
-    provider: user.providerId || "firebase",
-    isGuest: false,
-  };
-}
-
 export function subscribeToAuth(callback) {
   if (!isFirebaseConfigured()) {
     callback(null);
     return () => {};
   }
 
-  if (Capacitor.isNativePlatform()) {
-    let listenerHandle;
-    FirebaseAuthentication.addListener("authStateChange", (event) => {
-      callback(mapNativeUser(event.user));
-    }).then((handle) => {
-      listenerHandle = handle;
-    });
-    FirebaseAuthentication.getCurrentUser()
-      .then((result) => callback(mapNativeUser(result.user)))
-      .catch(() => callback(null));
-    return () => listenerHandle?.remove();
-  }
+  let unsubscribe = () => {};
+  loadFirebase()
+    .then((auth) => {
+      if (!auth) {
+        callback(null);
+        return;
+      }
+      unsubscribe = firebaseModules.onAuthStateChanged(auth, (user) =>
+        callback(mapFirebaseUser(user))
+      );
+    })
+    .catch(() => callback(null));
 
-  const auth = getWebAuth();
-  return onAuthStateChanged(auth, (user) => callback(mapFirebaseUser(user)));
+  return () => unsubscribe();
 }
 
-async function webSignIn(provider) {
-  const auth = getWebAuth();
+export async function handleAuthRedirect() {
+  if (!isFirebaseConfigured()) return null;
+  try {
+    const auth = await loadFirebase();
+    if (!auth) return null;
+    const result = await firebaseModules.getRedirectResult(auth);
+    return result?.user ? mapFirebaseUser(result.user) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function signInWithProvider(ProviderClass, providerArgs = []) {
+  const auth = await loadFirebase();
   if (!auth) throw new Error("FIREBASE_NOT_CONFIGURED");
-  const result = await signInWithPopup(auth, provider);
+
+  const provider = new ProviderClass(...providerArgs);
+
+  if (Capacitor.isNativePlatform()) {
+    await firebaseModules.signInWithRedirect(auth, provider);
+    return null;
+  }
+
+  const result = await firebaseModules.signInWithPopup(auth, provider);
   return mapFirebaseUser(result.user);
 }
 
-async function nativeSignIn(providerId) {
-  if (!isFirebaseConfigured()) throw new Error("FIREBASE_NOT_CONFIGURED");
-
-  switch (providerId) {
-    case "google.com":
-      await FirebaseAuthentication.signInWithGoogle();
-      break;
-    case "apple.com":
-      await FirebaseAuthentication.signInWithApple();
-      break;
-    case "facebook.com":
-      await FirebaseAuthentication.signInWithFacebook();
-      break;
-    default:
-      throw new Error("Unsupported provider");
-  }
-
-  const { user } = await FirebaseAuthentication.getCurrentUser();
-  return mapNativeUser(user);
+export async function signInWithGoogle() {
+  await loadFirebase();
+  return signInWithProvider(firebaseModules.GoogleAuthProvider);
 }
 
-async function signInWithProvider(providerId, ProviderClass, providerArgs = []) {
-  if (!isFirebaseConfigured()) throw new Error("FIREBASE_NOT_CONFIGURED");
-
-  if (Capacitor.isNativePlatform()) {
-    return nativeSignIn(providerId);
-  }
-
-  const provider = new ProviderClass(...providerArgs);
-  return webSignIn(provider);
+export async function signInWithApple() {
+  await loadFirebase();
+  return signInWithProvider(firebaseModules.OAuthProvider, ["apple.com"]);
 }
 
-export function signInWithGoogle() {
-  return signInWithProvider("google.com", GoogleAuthProvider);
-}
-
-export function signInWithApple() {
-  return signInWithProvider("apple.com", OAuthProvider, ["apple.com"]);
-}
-
-export function signInWithFacebook() {
-  return signInWithProvider("facebook.com", FacebookAuthProvider);
+export async function signInWithFacebook() {
+  await loadFirebase();
+  return signInWithProvider(firebaseModules.FacebookAuthProvider);
 }
 
 export async function signInAsGuest() {
   if (isFirebaseConfigured()) {
-    if (Capacitor.isNativePlatform()) {
-      // Anonymous auth via web layer isn't exposed on all native builds; use local guest.
-      return createLocalGuest();
+    try {
+      const auth = await loadFirebase();
+      if (auth) {
+        const result = await firebaseModules.signInAnonymously(auth);
+        return mapFirebaseUser(result.user);
+      }
+    } catch {
+      /* use local guest */
     }
-    const auth = getWebAuth();
-    const result = await signInAnonymously(auth);
-    return mapFirebaseUser(result.user);
   }
   return createLocalGuest();
 }
 
 function createLocalGuest() {
-  const id = `guest-${Date.now()}`;
   return {
-    uid: id,
+    uid: `guest-${Date.now()}`,
     email: "",
     displayName: "Guest Planner",
     photoURL: "",
@@ -149,13 +124,14 @@ function createLocalGuest() {
 }
 
 export async function signOutUser() {
-  if (isFirebaseConfigured()) {
-    if (Capacitor.isNativePlatform()) {
-      await FirebaseAuthentication.signOut();
-      return;
+  if (!isFirebaseConfigured()) return;
+  try {
+    const auth = await loadFirebase();
+    if (auth?.currentUser) {
+      await firebaseModules.signOut(auth);
     }
-    const auth = getWebAuth();
-    if (auth?.currentUser) await firebaseSignOut(auth);
+  } catch {
+    /* ignore */
   }
 }
 

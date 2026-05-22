@@ -25,9 +25,7 @@ Add your [Anthropic API key](https://console.anthropic.com/) in the app **Profil
 1. Create a project at [Firebase Console](https://console.firebase.google.com).
 2. Enable **Authentication** → sign-in providers: Google, Apple, Facebook.
 3. Register a **Web app** and copy config values into `.env` (see `.env.example`).
-4. For **Android**, download `google-services.json` and place it at:
-   `android/app/google-services.json`
-5. Add your Android app in Firebase with package name `com.weddingplanner.app` and SHA-1 from your debug keystore.
+4. For **Android social login**, add your app in Firebase with package name `com.weddingplanner.app` and authorize your auth domain for redirect sign-in (uses the in-app WebView, no native Firebase plugin required).
 
 ```bash
 cp .env.example .env
