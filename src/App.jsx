@@ -1,17 +1,25 @@
 import { useEffect, useState } from "react";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Capacitor } from "@capacitor/core";
+import { LoginScreen } from "./components/auth/LoginScreen.jsx";
+import { OnboardingScreen } from "./components/auth/OnboardingScreen.jsx";
+import { WelcomeScreen } from "./components/auth/WelcomeScreen.jsx";
 import { AgentSidebar } from "./components/AgentSidebar.jsx";
 import { ChatArea } from "./components/ChatArea.jsx";
-import { SettingsModal } from "./components/SettingsModal.jsx";
+import { ProfileSheet } from "./components/ProfileSheet.jsx";
+import { useAuth } from "./hooks/useAuth.js";
 import { useWeddingPlanner } from "./hooks/useWeddingPlanner.js";
+import { tapFeedback } from "./utils/haptics.js";
+import "./styles/auth.css";
 import "./App.css";
 
 export default function App() {
+  const auth = useAuth();
   const planner = useWeddingPlanner();
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [authStep, setAuthStep] = useState("welcome");
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -26,9 +34,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!planner.hydrated || planner.apiKey) return;
-    setSettingsOpen(true);
-  }, [planner.hydrated, planner.apiKey]);
+    if (!planner.hydrated || !auth.user || planner.apiKey) return;
+    setProfileOpen(true);
+  }, [planner.hydrated, auth.user, planner.apiKey]);
 
   function handleSend(text) {
     const message = typeof text === "string" ? text : input;
@@ -42,16 +50,68 @@ export default function App() {
     planner.setError("");
   }
 
-  if (!planner.hydrated) {
+  async function handleSignIn(fn) {
+    await tapFeedback();
+    try {
+      await fn();
+    } catch {
+      /* error shown in LoginScreen */
+    }
+  }
+
+  if (!auth.hydrated || !planner.hydrated) {
     return (
       <div className="app-shell">
-        <div className="loading-screen">Loading Wedding Planner…</div>
+        <div className="loading-screen">
+          <div className="welcome-icon small">💒</div>
+          Loading…
+        </div>
       </div>
     );
   }
 
+  if (!auth.user) {
+    if (!auth.onboardingComplete) {
+      if (authStep === "welcome") {
+        return (
+          <WelcomeScreen
+            onContinue={async () => {
+              await tapFeedback();
+              setAuthStep("onboarding");
+            }}
+          />
+        );
+      }
+      if (authStep === "onboarding") {
+        return (
+          <OnboardingScreen
+            onComplete={async () => {
+              await tapFeedback();
+              await auth.completeOnboarding();
+              setAuthStep("login");
+            }}
+          />
+        );
+      }
+    }
+
+    return (
+      <LoginScreen
+        authLoading={auth.authLoading}
+        authError={auth.authError}
+        isAuthConfigured={auth.isAuthConfigured}
+        onGoogle={() => handleSignIn(auth.signInGoogle)}
+        onApple={() => handleSignIn(auth.signInApple)}
+        onFacebook={() => handleSignIn(auth.signInFacebook)}
+        onGuest={() => handleSignIn(auth.continueAsGuest)}
+      />
+    );
+  }
+
+  const firstName = auth.user.displayName?.split(" ")[0] || "there";
+
   return (
-    <div className="app-shell">
+    <div className="app-shell app-shell--main">
       <div className={`layout ${sidebarOpen ? "layout--sidebar-open" : ""}`}>
         <div
           className="sidebar-backdrop"
@@ -64,6 +124,7 @@ export default function App() {
           conversations={planner.conversations}
           totalMessages={planner.totalMessages}
           weddingInfo={planner.weddingInfo}
+          user={auth.user}
           onAgentSelect={selectAgent}
           onWeddingInfoChange={planner.setWeddingInfo}
           onClose={() => setSidebarOpen(false)}
@@ -74,26 +135,25 @@ export default function App() {
           loading={planner.loading}
           error={planner.error}
           input={input}
+          user={auth.user}
+          greeting={`Hi, ${firstName}`}
           onInputChange={setInput}
           onSend={handleSend}
           onClear={planner.clearChat}
+          onOpenProfile={() => setProfileOpen(true)}
         />
       </div>
 
-      <button
-        type="button"
-        className="settings-fab"
-        onClick={() => setSettingsOpen(true)}
-        aria-label="Open settings"
-      >
-        ⚙
-      </button>
-
-      {settingsOpen && (
-        <SettingsModal
+      {profileOpen && (
+        <ProfileSheet
+          user={auth.user}
           apiKey={planner.apiKey}
-          onSave={planner.updateApiKey}
-          onClose={() => setSettingsOpen(false)}
+          onSaveApiKey={planner.updateApiKey}
+          onSignOut={async () => {
+            await auth.signOut();
+            setProfileOpen(false);
+          }}
+          onClose={() => setProfileOpen(false)}
         />
       )}
     </div>

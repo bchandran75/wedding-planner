@@ -5,7 +5,38 @@ const KEYS = {
   weddingInfo: "wp_wedding_info",
   apiKey: "wp_api_key",
   activeAgent: "wp_active_agent",
+  localUser: "wp_user",
+  onboardingComplete: "wp_onboarding_done",
 };
+
+export async function loadAuthState() {
+  const [user, onboarding] = await Promise.all([
+    Preferences.get({ key: KEYS.localUser }),
+    Preferences.get({ key: KEYS.onboardingComplete }),
+  ]);
+  return {
+    localUser: user.value ? JSON.parse(user.value) : null,
+    onboardingComplete: onboarding.value === "true",
+  };
+}
+
+export async function saveAuthState({ localUser }) {
+  if (localUser === null) {
+    await Preferences.remove({ key: KEYS.localUser });
+    return;
+  }
+  await Preferences.set({
+    key: KEYS.localUser,
+    value: JSON.stringify(localUser),
+  });
+}
+
+export async function saveOnboardingComplete(done) {
+  await Preferences.set({
+    key: KEYS.onboardingComplete,
+    value: done ? "true" : "false",
+  });
+}
 
 export async function loadState() {
   const [conversations, weddingInfo, apiKey, activeAgent] = await Promise.all([

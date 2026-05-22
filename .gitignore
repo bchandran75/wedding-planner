@@ -9,3 +9,6 @@ android/local.properties
 .DS_Store
 .env
 .env.local
+.env.*.local
+google-services.json
+GoogleService-Info.plist

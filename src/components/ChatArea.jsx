@@ -9,10 +9,14 @@ export function ChatArea({
   loading,
   error,
   input,
+  user,
+  greeting,
   onInputChange,
   onSend,
   onClear,
+  onOpenProfile,
 }) {
+  const initial = (user?.displayName || "G").charAt(0).toUpperCase();
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -45,14 +49,31 @@ export function ChatArea({
           {agent.icon}
         </div>
         <div className="chat-header-text">
+          <div className="greeting-line">{greeting}</div>
           <div className="chat-header-name">{agent.name}</div>
           <div className="chat-header-role">Specialized wedding planning agent</div>
         </div>
-        {messages.length > 0 && (
-          <button type="button" className="clear-btn" onClick={onClear}>
-            Clear
+        <div className="chat-header-actions">
+          {messages.length > 0 && (
+            <button type="button" className="clear-btn" onClick={onClear}>
+              Clear
+            </button>
+          )}
+          <button
+            type="button"
+            className="user-chip"
+            onClick={onOpenProfile}
+            aria-label="Open profile"
+          >
+            <span className="user-chip-avatar">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="" />
+              ) : (
+                initial
+              )}
+            </span>
           </button>
-        )}
+        </div>
       </header>
 
       <div className="messages">

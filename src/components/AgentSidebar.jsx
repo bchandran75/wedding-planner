@@ -6,21 +6,31 @@ export function AgentSidebar({
   conversations,
   totalMessages,
   weddingInfo,
+  user,
   onAgentSelect,
   onWeddingInfoChange,
   onClose,
 }) {
+  const initial = (user?.displayName || "G").charAt(0).toUpperCase();
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-title">
           <span>💒</span> Wedding Planner
         </div>
-        <div className="sidebar-subtitle">
-          {totalMessages > 0
-            ? `${totalMessages} messages across agents`
-            : "6 specialist agents ready"}
-        </div>
+          <div className="sidebar-subtitle">
+            {user?.displayName
+              ? `Planning with ${user.displayName.split(" ")[0]}`
+              : totalMessages > 0
+                ? `${totalMessages} messages across agents`
+                : "6 specialist agents ready"}
+          </div>
+          {user && (
+            <div className="sidebar-user-pill">
+              <span className="sidebar-user-avatar">{initial}</span>
+              <span className="sidebar-user-name">{user.displayName}</span>
+            </div>
+          )}
         {onClose && (
           <button type="button" className="icon-btn sidebar-close" onClick={onClose} aria-label="Close menu">
             ✕

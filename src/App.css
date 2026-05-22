@@ -24,7 +24,8 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
   background: var(--color-background-secondary);
   color: var(--color-text-primary);
   -webkit-tap-highlight-color: transparent;
@@ -226,8 +227,15 @@ body {
   color: var(--color-text-tertiary);
 }
 
-.clear-btn {
+.chat-header-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clear-btn {
+  margin-left: 0;
   font-size: 11px;
   color: var(--color-text-tertiary);
   background: none;
@@ -411,49 +419,15 @@ body {
   border: 0.5px solid #fecaca;
 }
 
-.settings-fab {
-  position: fixed;
-  right: 14px;
-  bottom: calc(14px + var(--safe-bottom));
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: #7c3aed;
-  color: #fff;
-  font-size: 20px;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
-  cursor: pointer;
-  z-index: 20;
-}
-
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
-  display: grid;
-  place-items: center;
-  padding: 20px;
   z-index: 30;
 }
 
-.modal-panel {
-  width: min(420px, 100%);
-  background: #fff;
-  border-radius: 14px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.modal-panel h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
 .modal-hint {
-  margin: 0;
+  margin: 0 0 10px;
   font-size: 13px;
   color: var(--color-text-secondary);
   line-height: 1.5;
@@ -463,15 +437,40 @@ body {
   color: #7c3aed;
 }
 
-.btn-primary {
-  margin-top: 8px;
-  padding: 10px 14px;
-  border: none;
+.sidebar-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--color-background-primary);
   border-radius: 10px;
-  background: #7c3aed;
+  border: 0.5px solid var(--color-border-tertiary);
+}
+
+.sidebar-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
   color: #fff;
-  font-size: 14px;
-  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+
+.sidebar-user-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell--main {
+  background: var(--color-background-primary);
 }
 
 .typing-indicator {
